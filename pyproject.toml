@@ -7,8 +7,13 @@ name = "ego-crawler"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "pytest>=8.0",
+    "playwright>=1.40",
+    "langchain-openai>=0.2",
+    "python-dotenv>=1.0",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -17,3 +22,6 @@ include = ["ego_crawler*"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "integration: requires a real browser and network (run with --integration)",
+]
