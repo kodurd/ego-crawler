@@ -14,18 +14,18 @@ import os
 import sys
 import signal
 from pathlib import Path
-from uuid import UUID
 
 # Загружаем .env до любых импортов, читающих переменные окружения
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
 from ego_crawler.domain.entities.session import Session
-from ego_crawler.domain.entities.agent_step import AgentStep
 from ego_crawler.domain.value_objects.budget import Budget
 from ego_crawler.domain.personas.anya_sokolova import create_anya_sokolova
 from ego_crawler.infrastructure.qwen.qwen_llm_client import QwenLLMClient
 from ego_crawler.infrastructure.playwright.playwright_web_tools import PlaywrightWebTools
+from ego_crawler.infrastructure.persistence.duckdb.duckdb_session_repository import DuckDBSessionRepository
+from ego_crawler.infrastructure.persistence.duckdb.duckdb_step_repository import DuckDBStepRepository
 from ego_crawler.application.use_cases.execute_agent_step import ExecuteAgentStep, StepResult
 from ego_crawler.application.services.prompt_builder import PromptBuilder
 
@@ -44,24 +44,6 @@ def dim(t):     return _c("2",  t)
 def bold(t):    return _c("1",  t)
 def blue(t):    return _c("94", t)
 
-# ── In-memory репозитории ─────────────────────────────────────────────────────
-
-class _SessionRepo:
-    def __init__(self):         self._data: dict[UUID, Session] = {}
-    def save(self, s: Session): self._data[s.id] = s
-    def get_by_id(self, sid):   return self._data.get(sid)
-    def get_active(self):       return next((s for s in self._data.values() if s.is_active()), None)
-
-
-class _StepRepo:
-    def __init__(self):          self._data: list[AgentStep] = []
-    def save(self, s: AgentStep): self._data.append(s)
-    def get_by_session(self, sid, limit=None):
-        r = [s for s in self._data if s.session_id == sid]
-        return r[:limit] if limit else r
-    def get_latest(self, sid, n=1):
-        f = [s for s in self._data if s.session_id == sid]
-        return f[-n:] if f else []
 
 # ── Консольный вывод ──────────────────────────────────────────────────────────
 
@@ -139,7 +121,7 @@ def print_step_result(result: StepResult) -> None:
     print()
 
 
-def print_summary(session: Session, step_repo: _StepRepo) -> None:
+def print_summary(session: Session, step_repo) -> None:
     steps = step_repo.get_by_session(session.id)
     thoughts = [s for s in steps if s.step_type.name == "THOUGHT"]
     actions  = [s for s in steps if s.step_type.name == "ACTION"]
@@ -193,6 +175,7 @@ def main() -> None:
     temperature  = float(_cfg_str("AGENT_TEMPERATURE", "0.75"))
     headless     = _cfg_bool("PLAYWRIGHT_HEADLESS",    True)
     timeout_ms   = _cfg_int ("PLAYWRIGHT_TIMEOUT_MS",  30_000)
+    db_path      = _cfg_str ("DB_PATH",               "ego_crawler.duckdb")
 
     # Инициализация — валидация API ключа происходит здесь
     try:
@@ -202,13 +185,14 @@ def main() -> None:
         print(dim("  Добавьте DASHSCOPE_API_KEY в файл .env\n"))
         sys.exit(1)
 
-    anya         = create_anya_sokolova()
-    session_repo = _SessionRepo()
-    step_repo    = _StepRepo()
+    anya           = create_anya_sokolova()
+    session_repo   = DuckDBSessionRepository(db_path)
+    step_repo      = DuckDBStepRepository(db_path)
     prompt_builder = PromptBuilder()
 
     # Создаём сессию напрямую с полной персоной (обходим CreateSession,
     # которая пересоздаёт Persona из примитивов и теряет system_prompt)
+    anya = anya.with_context(model=model)
     session = Session(
         persona=anya,
         budget=Budget.from_minutes(budget_min),
