@@ -25,6 +25,7 @@ class AgentStep:
     latency_ms: int | None = None
     token_count_input: int | None = None
     token_count_output: int | None = None
+    observation_success: bool | None = None
 
     def __post_init__(self):
         if self.step_number < 0:

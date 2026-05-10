@@ -29,12 +29,13 @@ class DuckDBStepRepository(StepRepository):
             INSERT INTO steps
                 (id, session_id, step_number, step_type, timestamp,
                  thought_content, action_tool, action_params,
-                 observation_raw, observation_summary,
+                 observation_raw, observation_summary, observation_success,
                  latency_ms, token_count_input, token_count_output)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET
                 observation_raw     = excluded.observation_raw,
                 observation_summary = excluded.observation_summary,
+                observation_success = excluded.observation_success,
                 latency_ms          = excluded.latency_ms,
                 token_count_input   = excluded.token_count_input,
                 token_count_output  = excluded.token_count_output
@@ -50,6 +51,7 @@ class DuckDBStepRepository(StepRepository):
                 json.dumps(step.action_params, ensure_ascii=False) if step.action_params else None,
                 step.observation_raw,
                 step.observation_summary,
+                step.observation_success,
                 step.latency_ms,
                 step.token_count_input,
                 step.token_count_output,
@@ -80,7 +82,7 @@ class DuckDBStepRepository(StepRepository):
         (
             id_, session_id, step_number, step_type, timestamp,
             thought_content, action_tool, action_params_json,
-            observation_raw, observation_summary,
+            observation_raw, observation_summary, observation_success,
             latency_ms, token_count_input, token_count_output,
         ) = row
 
@@ -108,6 +110,7 @@ class DuckDBStepRepository(StepRepository):
             action_params=action_params,
             observation_raw=observation_raw,
             observation_summary=observation_summary,
+            observation_success=observation_success,
             latency_ms=latency_ms,
             token_count_input=token_count_input,
             token_count_output=token_count_output,

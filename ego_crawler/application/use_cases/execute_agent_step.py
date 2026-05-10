@@ -124,8 +124,9 @@ class ExecuteAgentStep:
             observation_step = AgentStep.create_observation(
                 session_id=session_id,
                 step_number=step_number,
-                raw_data=str(tool_result.data)[:2000],  # Limit size
-                summary=tool_result.error_message if not tool_result.success else None
+                raw_data=str(tool_result.data)[:2000],
+                summary=tool_result.error_message if not tool_result.success else None,
+                observation_success=tool_result.success,
             )
             self.step_repo.save(observation_step)
             session.add_step_to_context(observation_step)

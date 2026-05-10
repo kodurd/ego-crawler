@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import duckdb
 
-DDL = """
+_DDL_CREATE = """
 CREATE TABLE IF NOT EXISTS sessions (
     id                      TEXT PRIMARY KEY,
     persona_name            TEXT NOT NULL,
@@ -21,22 +21,29 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE TABLE IF NOT EXISTS steps (
-    id                  TEXT PRIMARY KEY,
-    session_id          TEXT NOT NULL REFERENCES sessions(id),
-    step_number         INTEGER NOT NULL,
-    step_type           TEXT NOT NULL,
-    timestamp           TIMESTAMPTZ NOT NULL,
-    thought_content     TEXT,
-    action_tool         TEXT,
-    action_params       TEXT,
-    observation_raw     TEXT,
-    observation_summary TEXT,
-    latency_ms          INTEGER,
-    token_count_input   INTEGER,
-    token_count_output  INTEGER
+    id                   TEXT PRIMARY KEY,
+    session_id           TEXT NOT NULL REFERENCES sessions(id),
+    step_number          INTEGER NOT NULL,
+    step_type            TEXT NOT NULL,
+    timestamp            TIMESTAMPTZ NOT NULL,
+    thought_content      TEXT,
+    action_tool          TEXT,
+    action_params        TEXT,
+    observation_raw      TEXT,
+    observation_summary  TEXT,
+    observation_success  BOOLEAN,
+    latency_ms           INTEGER,
+    token_count_input    INTEGER,
+    token_count_output   INTEGER
 );
+"""
+
+# Run once after CREATE to add columns introduced in later versions
+_DDL_MIGRATE = """
+ALTER TABLE steps ADD COLUMN IF NOT EXISTS observation_success BOOLEAN;
 """
 
 
 def ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
-    conn.execute(DDL)
+    conn.execute(_DDL_CREATE)
+    conn.execute(_DDL_MIGRATE)

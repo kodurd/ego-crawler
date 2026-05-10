@@ -72,12 +72,13 @@ def _action(session_id, step_number=2, tool="web_search",
 
 
 def _observation(session_id, step_number=3, raw="<html>…</html>",
-                 summary=None, **kw) -> AgentStep:
+                 summary=None, observation_success=None, **kw) -> AgentStep:
     return AgentStep.create_observation(
         session_id=session_id,
         step_number=step_number,
         raw_data=raw,
         summary=summary,
+        observation_success=observation_success,
         **kw,
     )
 
@@ -300,3 +301,53 @@ class TestGetLatest:
     def test_empty_for_unknown_session(self, repos):
         _, step_repo = repos
         assert step_repo.get_latest(uuid4()) == []
+
+
+# ── observation_success ───────────────────────────────────────────────────────
+
+class TestObservationSuccess:
+    def test_success_true_roundtrips(self, repos, session_id):
+        _, step_repo = repos
+        step = _observation(session_id, observation_success=True)
+        step_repo.save(step)
+        loaded = step_repo.get_by_session(session_id)[0]
+        assert loaded.observation_success is True
+
+    def test_success_false_roundtrips(self, repos, session_id):
+        _, step_repo = repos
+        step = _observation(session_id, observation_success=False)
+        step_repo.save(step)
+        loaded = step_repo.get_by_session(session_id)[0]
+        assert loaded.observation_success is False
+
+    def test_success_none_by_default(self, repos, session_id):
+        _, step_repo = repos
+        step = _observation(session_id)
+        step_repo.save(step)
+        loaded = step_repo.get_by_session(session_id)[0]
+        assert loaded.observation_success is None
+
+    def test_thought_step_success_is_none(self, repos, session_id):
+        _, step_repo = repos
+        step = _thought(session_id)
+        step_repo.save(step)
+        loaded = step_repo.get_by_session(session_id)[0]
+        assert loaded.observation_success is None
+
+    def test_upsert_updates_success(self, repos, session_id):
+        _, step_repo = repos
+        step = _observation(session_id, observation_success=None)
+        step_repo.save(step)
+
+        updated = AgentStep(
+            id=step.id,
+            session_id=step.session_id,
+            step_number=step.step_number,
+            step_type=step.step_type,
+            observation_raw=step.observation_raw,
+            observation_success=True,
+        )
+        step_repo.save(updated)
+
+        loaded = step_repo.get_by_session(session_id)[0]
+        assert loaded.observation_success is True
